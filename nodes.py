@@ -2458,6 +2458,14 @@ async def init_builtin_extra_nodes():
         "nodes_painter.py",
     ]
 
+    if importlib.util.find_spec("torchaudio") is None:
+        audio_only_nodes = {
+            "nodes_audio.py",
+            "nodes_lt_audio.py",
+            "nodes_audio_encoder.py",
+        }
+        extras_files = [node_file for node_file in extras_files if node_file not in audio_only_nodes]
+
     import_failed = []
     for node_file in extras_files:
         if not await load_custom_node(os.path.join(extras_dir, node_file), module_parent="comfy_extras"):

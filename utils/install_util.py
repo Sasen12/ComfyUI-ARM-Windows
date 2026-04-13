@@ -34,7 +34,14 @@ def get_required_packages_versions():
     try:
         with open(requirements_path, "r", encoding="utf-8") as f:
             for line in f:
-                line = line.strip().replace(">=", "==")
+                line = line.strip()
+                if not line or line.startswith("#") or line.startswith("-"):
+                    continue
+
+                # Ignore environment markers and inline comments when parsing
+                # version pins so requirements markers do not trigger false
+                # "invalid version" warnings.
+                line = line.split(";", 1)[0].split("#", 1)[0].strip().replace(">=", "==")
                 s = line.split("==")
                 if len(s) == 2:
                     version_str = s[-1]

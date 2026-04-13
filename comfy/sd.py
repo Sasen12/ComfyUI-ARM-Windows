@@ -3,6 +3,7 @@ import json
 import torch
 from enum import Enum
 import logging
+import importlib.util
 
 from comfy import model_management
 from comfy.utils import ProgressBar
@@ -16,9 +17,7 @@ import comfy.ldm.cosmos.vae
 import comfy.ldm.wan.vae
 import comfy.ldm.wan.vae2_2
 import comfy.ldm.hunyuan3d.vae
-import comfy.ldm.ace.vae.music_dcae_pipeline
 import comfy.ldm.hunyuan_video.vae
-import comfy.ldm.mmaudio.vae.autoencoder
 import comfy.pixel_space_convert
 import comfy.weight_adapter
 import yaml
@@ -72,6 +71,12 @@ import comfy.taesd.taehv
 import comfy.latent_formats
 
 import comfy.ldm.flux.redux
+
+_TORCHAUDIO_AVAILABLE = importlib.util.find_spec("torchaudio") is not None
+
+if _TORCHAUDIO_AVAILABLE:
+    import comfy.ldm.ace.vae.music_dcae_pipeline
+    import comfy.ldm.mmaudio.vae.autoencoder
 
 def load_lora_for_models(model, clip, lora, strength_model, strength_clip):
     key_map = {}
@@ -728,7 +733,7 @@ class VAE:
                 self.working_dtypes = [torch.float16, torch.bfloat16, torch.float32]
 
 
-            elif "vocoder.backbone.channel_layers.0.0.bias" in sd: #Ace Step Audio
+            elif _TORCHAUDIO_AVAILABLE and "vocoder.backbone.channel_layers.0.0.bias" in sd: #Ace Step Audio
                 self.first_stage_model = comfy.ldm.ace.vae.music_dcae_pipeline.MusicDCAE(source_sample_rate=44100)
                 self.memory_used_encode = lambda shape, dtype: (shape[2] * 330) * model_management.dtype_size(dtype)
                 self.memory_used_decode = lambda shape, dtype: (shape[2] * shape[3] * 87000) * model_management.dtype_size(dtype)
@@ -752,7 +757,7 @@ class VAE:
                 self.latent_channels = 3
                 self.latent_dim = 2
                 self.output_channels = 3
-            elif "vocoder.activation_post.downsample.lowpass.filter" in sd: #MMAudio VAE
+            elif _TORCHAUDIO_AVAILABLE and "vocoder.activation_post.downsample.lowpass.filter" in sd: #MMAudio VAE
                 sample_rate = 16000
                 if sample_rate == 16000:
                     mode = '16k'

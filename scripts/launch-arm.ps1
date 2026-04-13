@@ -11,6 +11,24 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
+$serverPort = 8188
+$serverUrl = "http://127.0.0.1:$serverPort"
+$existingListener = Get-NetTCPConnection -LocalPort $serverPort -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($existingListener) {
+    try {
+        $owner = Get-CimInstance Win32_Process -Filter "ProcessId=$($existingListener.OwningProcess)" -ErrorAction Stop
+        if ($owner.CommandLine -match '(?i)\bmain\.py\b') {
+            Write-Host "ComfyUI is already running at $serverUrl. Reusing the existing instance."
+            try {
+                Start-Process $serverUrl | Out-Null
+            } catch {
+            }
+            return
+        }
+    } catch {
+    }
+}
+
 & "$PSScriptRoot\bootstrap-arm.ps1" -Quiet -Runtime $Runtime
 . "$PSScriptRoot\arm-common.ps1"
 
