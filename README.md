@@ -1,45 +1,9 @@
-<div align="center">
-
 # ComfyUI-ARM-Windows
-**Unofficial ARM-optimized fork of ComfyUI for Windows on ARM and Snapdragon laptops.**
 
+Unofficial ARM-optimized fork of ComfyUI for Windows on ARM and Snapdragon laptops.
 
-[![Website][website-shield]][website-url]
-[![Dynamic JSON Badge][discord-shield]][discord-url]
-[![Twitter][twitter-shield]][twitter-url]
-[![Matrix][matrix-shield]][matrix-url]
-<br>
-[![][github-release-shield]][github-release-link]
-[![][github-release-date-shield]][github-release-link]
-[![][github-downloads-shield]][github-downloads-link]
-[![][github-downloads-latest-shield]][github-downloads-link]
-
-[matrix-shield]: https://img.shields.io/badge/Matrix-000000?style=flat&logo=matrix&logoColor=white
-[matrix-url]: https://app.element.io/#/room/%23comfyui_space%3Amatrix.org
-[website-shield]: https://img.shields.io/badge/ComfyOrg-4285F4?style=flat
-[website-url]: https://www.comfy.org/
-<!-- Workaround to display total user from https://github.com/badges/shields/issues/4500#issuecomment-2060079995 -->
-[discord-shield]: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscord.com%2Fapi%2Finvites%2Fcomfyorg%3Fwith_counts%3Dtrue&query=%24.approximate_member_count&logo=discord&logoColor=white&label=Discord&color=green&suffix=%20total
-[discord-url]: https://www.comfy.org/discord
-[twitter-shield]: https://img.shields.io/twitter/follow/ComfyUI
-[twitter-url]: https://x.com/ComfyUI
-
-[github-release-shield]: https://img.shields.io/github/v/release/comfyanonymous/ComfyUI?style=flat&sort=semver
-[github-release-link]: https://github.com/comfyanonymous/ComfyUI/releases
-[github-release-date-shield]: https://img.shields.io/github/release-date/comfyanonymous/ComfyUI?style=flat
-[github-downloads-shield]: https://img.shields.io/github/downloads/comfyanonymous/ComfyUI/total?style=flat
-[github-downloads-latest-shield]: https://img.shields.io/github/downloads/comfyanonymous/ComfyUI/latest/total?style=flat&label=downloads%40latest
-[github-downloads-link]: https://github.com/comfyanonymous/ComfyUI/releases
-
-![ComfyUI Screenshot](https://github.com/user-attachments/assets/7ccaf2c1-9b72-41ae-9a89-5688c94b7abe)
-</div>
-
-This is an unofficial fork of [ComfyUI](https://github.com/comfyanonymous/ComfyUI) focused on Windows on ARM and Snapdragon laptops.
-
-Who this is for:
-- Snapdragon X Plus and Snapdragon X Elite laptops on Windows 11 ARM64
-- People who want a safer, clearer ARM-specific launch path
-- Users who need CPU-only or DirectML-first startup on ARM hardware
+This is an unofficial fork of [ComfyUI](https://github.com/comfyanonymous/ComfyUI).
+It is not the upstream project. It exists to make ComfyUI easier to run on Snapdragon X Plus and Snapdragon X Elite laptops on Windows 11 ARM64.
 
 What this fork changes:
 - ARM-aware startup scripts and Windows ARM detection
@@ -47,19 +11,48 @@ What this fork changes:
 - Safer defaults for custom nodes on Snapdragon systems
 - Clearer startup logging, setup guidance, and ARM-focused tests
 
-It keeps the GPL-3.0 license and upstream attribution intact. This is still ComfyUI, just adapted for a different Windows hardware target.
+Who this is for:
+- Windows 11 ARM64 users on Snapdragon laptops
+- People who want a safer one-command launch path
+- Users who need CPU-only or DirectML-first startup on ARM hardware
 
-## Quick Start
-1. Double-click [`start-arm.cmd`](./start-arm.cmd) for the one-command safe launch. It installs or refreshes the ARM dependencies and starts ComfyUI.
-2. Double-click [`start-arm-full.cmd`](./start-arm-full.cmd) if you want the same launch path with custom nodes enabled.
-3. Double-click [`bootstrap-arm.cmd`](./bootstrap-arm.cmd) if you only want to repair or refresh the ARM dependency install.
+Upstream: [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
+License: GPL-3.0
+
+## Tested On
+- Snapdragon X Plus laptop
+- Windows 11 ARM64
+- CPU-only mode on the supported launch path
+- Basic workflows
+- Not officially affiliated with ComfyUI or Comfy Org
+- Performance will be limited compared with NVIDIA systems
+
+## One-command setup
+Run this from the repo root:
+
+```powershell
+.\start-arm.cmd
+```
+
+This is the recommended ARM launch path. It bootstraps the ARM dependencies and starts ComfyUI in safe mode.
+
+If you want custom nodes enabled, run:
+
+```powershell
+.\start-arm-full.cmd
+```
+
+If you only want to repair or refresh the ARM dependency install, run:
+
+```powershell
+.\bootstrap-arm.cmd
+```
 
 ## Current status
-- Tested on a Snapdragon X Plus laptop.
 - CPU-only launch works on the supported path.
 - Basic workflows are the intended first use case on this fork.
-- Not officially affiliated with ComfyUI or Comfy Org.
 - Performance will be limited compared with NVIDIA systems.
+- Not officially affiliated with ComfyUI or Comfy Org.
 
 ## ARM-specific files
 - `bootstrap-arm.cmd`
@@ -79,6 +72,9 @@ It keeps the GPL-3.0 license and upstream attribution intact. This is still Comf
 - Added Snapdragon-friendly launch scripts and safe defaults for custom nodes.
 - Added a CPU fallback path and clearer startup logging.
 - Added tests and docs for the Windows ARM path.
+
+---
+The sections below are the upstream ComfyUI documentation kept for reference.
 
 ComfyUI lets you design and execute advanced stable diffusion pipelines using a graph/nodes/flowchart based interface. Available on Windows, Linux, and macOS.
 
