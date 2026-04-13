@@ -31,10 +31,20 @@ setup_logger(log_level=args.verbose, use_stdout=args.log_stdout)
 
 faulthandler.enable(file=sys.stderr, all_threads=False)
 
-import comfy_aimdo.control
+comfy_aimdo_control = None
+if is_windows_on_arm64_host():
+    logging.info("Skipping comfy-aimdo control backend on Windows ARM; it is NVIDIA-only.")
+else:
+    try:
+        import comfy_aimdo.control as comfy_aimdo_control
+    except Exception as e:
+        logging.warning(
+            "comfy-aimdo control backend unavailable. DynamicVRAM support will be disabled. Details: %s",
+            e,
+        )
 
-if enables_dynamic_vram():
-    comfy_aimdo.control.init()
+if comfy_aimdo_control is not None and enables_dynamic_vram():
+    comfy_aimdo_control.init()
 
 if os.name == "nt":
     os.environ['MIMALLOC_PURGE_DELAY'] = '0'
@@ -208,26 +218,29 @@ import hook_breaker_ac10a0
 import comfy.memory_management
 import comfy.model_patcher
 
-if args.enable_dynamic_vram or (enables_dynamic_vram() and comfy.model_management.is_nvidia() and not comfy.model_management.is_wsl()):
+dynamic_vram_requested = args.enable_dynamic_vram or (enables_dynamic_vram() and comfy.model_management.is_nvidia() and not comfy.model_management.is_wsl())
+if dynamic_vram_requested and comfy_aimdo_control is not None:
     if (not args.enable_dynamic_vram) and (comfy.model_management.torch_version_numeric < (2, 8)):
         logging.warning("Unsupported Pytorch detected. DynamicVRAM support requires Pytorch version 2.8 or later. Falling back to legacy ModelPatcher. VRAM estimates may be unreliable especially on Windows")
-    elif comfy_aimdo.control.init_device(comfy.model_management.get_torch_device().index):
+    elif comfy_aimdo_control.init_device(comfy.model_management.get_torch_device().index):
         if args.verbose == 'DEBUG':
-            comfy_aimdo.control.set_log_debug()
+            comfy_aimdo_control.set_log_debug()
         elif args.verbose == 'CRITICAL':
-            comfy_aimdo.control.set_log_critical()
+            comfy_aimdo_control.set_log_critical()
         elif args.verbose == 'ERROR':
-            comfy_aimdo.control.set_log_error()
+            comfy_aimdo_control.set_log_error()
         elif args.verbose == 'WARNING':
-            comfy_aimdo.control.set_log_warning()
+            comfy_aimdo_control.set_log_warning()
         else: #INFO
-            comfy_aimdo.control.set_log_info()
+            comfy_aimdo_control.set_log_info()
 
         comfy.model_patcher.CoreModelPatcher = comfy.model_patcher.ModelPatcherDynamic
         comfy.memory_management.aimdo_enabled = True
         logging.info("DynamicVRAM support detected and enabled")
     else:
         logging.warning("No working comfy-aimdo install detected. DynamicVRAM support disabled. Falling back to legacy ModelPatcher. VRAM estimates may be unreliable especially on Windows")
+elif dynamic_vram_requested:
+    logging.warning("DynamicVRAM was requested, but comfy-aimdo is unavailable on this system. Falling back to legacy ModelPatcher.")
 
 
 def cuda_malloc_warning():
