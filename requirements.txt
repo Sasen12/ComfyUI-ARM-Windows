@@ -4,7 +4,7 @@ comfyui-embedded-docs==0.4.3
 torch
 torchsde
 torchvision
-torchaudio
+torchaudio; platform_machine != "ARM64"
 numpy>=1.25.0
 einops
 transformers>=4.50.3
@@ -23,7 +23,7 @@ SQLAlchemy
 filelock
 av>=14.2.0
 comfy-kitchen>=0.2.8
-comfy-aimdo>=0.2.12
+comfy-aimdo>=0.2.12; platform_machine != "ARM64"
 requests
 simpleeval>=1.0.0
 blake3

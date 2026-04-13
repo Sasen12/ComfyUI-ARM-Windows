@@ -3,7 +3,10 @@ import logging
 import psutil
 from ctypes import wintypes
 
-import comfy_aimdo.control
+try:
+    import comfy_aimdo.control as comfy_aimdo_control
+except ModuleNotFoundError:
+    comfy_aimdo_control = None
 
 psapi = ctypes.WinDLL("psapi")
 kernel32 = ctypes.WinDLL("kernel32")
@@ -47,6 +50,6 @@ def get_free_ram():
     committed = pi.CommitTotal * pi.PageSize
     total = pi.PhysicalTotal * pi.PageSize
 
+    total_vram_usage = comfy_aimdo_control.get_total_vram_usage() if comfy_aimdo_control is not None else 0
     return max(psutil.virtual_memory().available,
-               total - (committed - comfy_aimdo.control.get_total_vram_usage()))
-
+               total - (committed - total_vram_usage))

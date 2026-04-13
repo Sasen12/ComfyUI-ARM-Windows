@@ -73,9 +73,56 @@ if (-not (Test-Path $requirementsRuntime)) {
 $requirementsCore = Join-Path $root "requirements.txt"
 $stampPath = Join-Path $root ".arm-bootstrap-$($runtimeName.ToLowerInvariant()).stamp"
 $bootstrapRequirementPaths = @($requirementsCore, $requirementsRuntime)
-$packageNames = if ($runtimeName -eq "QNN") { @("onnxruntime-qnn", "onnx") } else { @("torch-directml") }
+$packageNames = if ($runtimeName -eq "QNN") { @("torch", "torchvision", "kornia", "onnxruntime-qnn", "onnx") } else { @("torch-directml") }
 $currentStamp = Get-ArmBootstrapStamp -Invoker $python -Runtime $runtimeName -PackageNames $packageNames -RequirementPaths $bootstrapRequirementPaths
 $existingStamp = if (Test-Path $stampPath) { (Get-Content $stampPath -Raw).Trim() } else { "" }
+
+if ($runtimeName -eq "QNN") {
+    $cmakeExe = $null
+    foreach ($candidatePath in @(
+        (Join-Path $env:ProgramFiles "CMake\bin\cmake.exe"),
+        (Join-Path ${env:ProgramFiles(x86)} "CMake\bin\cmake.exe")
+    )) {
+        if ($candidatePath -and (Test-Path $candidatePath)) {
+            $cmakeExe = (Get-Item $candidatePath).FullName
+            break
+        }
+    }
+
+    if (-not $cmakeExe) {
+        $winget = Get-Command winget -ErrorAction SilentlyContinue
+        if ($winget) {
+            if (-not $Quiet) {
+                Write-Host "Installing Kitware CMake for QNN builds..."
+            }
+
+            & $winget.Source install -e --id Kitware.CMake --silent --accept-package-agreements --accept-source-agreements | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+                throw "Kitware CMake install failed with exit code $LASTEXITCODE."
+            }
+
+            foreach ($candidatePath in @(
+                (Join-Path $env:ProgramFiles "CMake\bin\cmake.exe"),
+                (Join-Path ${env:ProgramFiles(x86)} "CMake\bin\cmake.exe")
+            )) {
+                if ($candidatePath -and (Test-Path $candidatePath)) {
+                    $cmakeExe = (Get-Item $candidatePath).FullName
+                    break
+                }
+            }
+        }
+    }
+
+    if (-not $cmakeExe) {
+        throw "CMake is required for QNN builds. Install Kitware CMake and try again."
+    }
+
+    $cmakeBinDir = Split-Path -Parent $cmakeExe
+    if ($env:PATH -notlike "*$cmakeBinDir*") {
+        $env:PATH = "$cmakeBinDir;$env:PATH"
+    }
+    $env:CMAKE = $cmakeExe
+}
 
 if ($existingStamp -eq $currentStamp) {
     if (-not $Quiet) {

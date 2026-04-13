@@ -30,8 +30,12 @@ function Get-ArmPythonCandidatePaths {
         $common_paths += @(
             (Join-Path $local_app_data "Programs\Python\Python311\python.exe"),
             (Join-Path $local_app_data "Programs\Python\Python312\python.exe"),
+            (Join-Path $local_app_data "Programs\Python\Python311-arm64\python.exe"),
+            (Join-Path $local_app_data "Programs\Python\Python312-arm64\python.exe"),
             (Join-Path $local_app_data "Programs\Python\Python311-64\python.exe"),
             (Join-Path $local_app_data "Programs\Python\Python312-64\python.exe"),
+            (Join-Path $local_app_data "Python\pythoncore-3.11-arm64\python.exe"),
+            (Join-Path $local_app_data "Python\pythoncore-3.12-arm64\python.exe"),
             (Join-Path $local_app_data "Python\pythoncore-3.11-64\python.exe"),
             (Join-Path $local_app_data "Python\pythoncore-3.12-64\python.exe")
         )
@@ -108,7 +112,7 @@ function Get-ArmRuntimeRequirementsText {
     )
 
     switch (Get-ArmRuntimeName -Runtime $Runtime) {
-        "QNN" { return "x64 Python 3.11 or 3.12" }
+        "QNN" { return "native ARM64 Python 3.11" }
         default { return "x64 Python 3.11 or 3.12" }
     }
 }
@@ -126,17 +130,17 @@ function Test-ArmPythonRuntimeSupport {
 
     $runtimeName = Get-ArmRuntimeName -Runtime $Runtime
     if ($runtimeName -eq "QNN") {
-        if ($Machine -notin @("AMD64", "X64", "X86_64")) {
+        if ($Machine -notin @("ARM64")) {
             return [pscustomobject]@{
                 Supported = $false
-                Reason    = "This runtime needs x64 Python."
+                Reason    = "This runtime needs native ARM64 Python."
             }
         }
 
-        if ($Version -notmatch '^3\.(11|12)\.') {
+        if ($Version -notmatch '^3\.11\.') {
             return [pscustomobject]@{
                 Supported = $false
-                Reason    = "This runtime is currently validated on x64 Python 3.11 and 3.12 only."
+                Reason    = "This runtime is currently validated on native ARM64 Python 3.11 only."
             }
         }
 

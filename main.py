@@ -488,14 +488,14 @@ if __name__ == "__main__":
         runtime_hint = preferred_windows_arm_runtime()
         if runtime_hint == "qnn":
             logging.info(
-                "Snapdragon QNN mode selected. This fork uses a supported x64 Python 3.11 or 3.12 install for the QNN lane."
+                "Snapdragon QNN mode selected. This fork uses native ARM64 Python 3.11 for the QNN lane."
             )
         elif is_windows_x64_emulated_on_arm64():
             logging.info("x64 emulation is a good match for the current DirectML dependency layout.")
         else:
             logging.warning(
                 "This ARM fork is most reliable with x64 Python 3.11 or 3.12 under Windows emulation for the DirectML lane. "
-                "Use launch-arm-qnn.cmd if you want the Snapdragon QNN lane with a supported x64 Python install."
+                "Use launch-arm-qnn.cmd if you want the Snapdragon QNN lane with native ARM64 Python 3.11."
             )
     logging.info("ComfyUI version: {}".format(comfyui_version.__version__))
     for package in ("comfy-aimdo", "comfy-kitchen"):

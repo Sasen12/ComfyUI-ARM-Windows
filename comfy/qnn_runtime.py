@@ -152,7 +152,7 @@ def _resolve_provider_configuration(
         else:
             raise RuntimeError(
                 "QNNExecutionProvider is not available. "
-                "Install onnxruntime-qnn on x64 Python 3.11 or 3.12 and try again."
+                "Install onnxruntime-qnn on native ARM64 Python 3.11 and try again."
             )
 
     if not qnn_available:

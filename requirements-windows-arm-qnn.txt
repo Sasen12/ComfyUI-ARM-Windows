@@ -1,7 +1,12 @@
--r requirements.txt
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.10.0+cpu
+torchvision==0.25.0+8ac84ee
+# Pin the older pure-Python release so ARM64 avoids the Rust-based kornia_rs build.
+kornia==0.7.1
 
-# Snapdragon / Qualcomm QNN runtime for supported x64 Python 3.11 or 3.12 on Windows ARM
+# Snapdragon / Qualcomm QNN runtime for native ARM64 Python 3.11 on Windows ARM
 # The QNN execution provider is the experimental NPU lane for this fork.
+-r requirements.txt
 numpy>=1.26.4,<2
 onnx>=1.16.0
 onnxruntime-qnn>=1.18.0

@@ -26,8 +26,12 @@ import comfy.memory_management
 import comfy.pinned_memory
 import comfy.utils
 
-import comfy_aimdo.model_vbar
-import comfy_aimdo.torch
+try:
+    import comfy_aimdo.model_vbar as comfy_aimdo_model_vbar
+    import comfy_aimdo.torch as comfy_aimdo_torch
+except ModuleNotFoundError:
+    comfy_aimdo_model_vbar = None
+    comfy_aimdo_torch = None
 
 def run_every_op():
     if torch.compiler.is_compiling():
@@ -80,6 +84,8 @@ def cast_to_input(weight, input, non_blocking=False, copy=True):
 
 
 def cast_bias_weight_with_vbar(s, dtype, device, bias_dtype, non_blocking, compute_dtype, want_requant):
+    if comfy_aimdo_model_vbar is None or comfy_aimdo_torch is None:
+        return cast_bias_weight(s, dtype, device, bias_dtype, offloadable=False, compute_dtype=compute_dtype, want_requant=want_requant)
 
     #vbar doesn't support CPU weights, but some custom nodes have weird paths
     #that might switch the layer to the CPU and expect it to work. We have to take
@@ -98,14 +104,14 @@ def cast_bias_weight_with_vbar(s, dtype, device, bias_dtype, non_blocking, compu
     offload_stream = None
     xfer_dest = None
 
-    signature = comfy_aimdo.model_vbar.vbar_fault(s._v)
-    resident = comfy_aimdo.model_vbar.vbar_signature_compare(signature, s._v_signature)
+    signature = comfy_aimdo_model_vbar.vbar_fault(s._v)
+    resident = comfy_aimdo_model_vbar.vbar_signature_compare(signature, s._v_signature)
     if signature is not None:
         if resident:
             weight = s._v_weight
             bias = s._v_bias
         else:
-            xfer_dest = comfy_aimdo.torch.aimdo_to_tensor(s._v, device)
+            xfer_dest = comfy_aimdo_torch.aimdo_to_tensor(s._v, device)
 
     if not resident:
         cast_geometry = comfy.memory_management.tensors_to_geometries([ s.weight, s.bias ])
@@ -224,7 +230,7 @@ def cast_bias_weight(s, input=None, dtype=None, device=None, bias_dtype=None, of
 
     non_blocking = comfy.model_management.device_supports_non_blocking(device)
 
-    if hasattr(s, "_v"):
+    if hasattr(s, "_v") and comfy_aimdo_model_vbar is not None and comfy_aimdo_torch is not None:
         return cast_bias_weight_with_vbar(s, dtype, device, bias_dtype, non_blocking, compute_dtype, want_requant)
 
     if offloadable and (device != s.weight.device or
@@ -286,7 +292,8 @@ def uncast_bias_weight(s, weight, bias, offload_stream):
     device=None
     #FIXME: This is really bad RTTI
     if weight_a is not None and not isinstance(weight_a, torch.Tensor):
-        comfy_aimdo.model_vbar.vbar_unpin(s._v)
+        if comfy_aimdo_model_vbar is not None:
+            comfy_aimdo_model_vbar.vbar_unpin(s._v)
         device = weight_a
     if os is None:
         return

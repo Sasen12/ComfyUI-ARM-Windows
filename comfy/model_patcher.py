@@ -37,7 +37,10 @@ from comfy.comfy_types import UnetWrapperFunction
 from comfy.quant_ops import QuantizedTensor
 from comfy.patcher_extension import CallbacksMP, PatcherInjection, WrappersMP
 
-import comfy_aimdo.model_vbar
+try:
+    import comfy_aimdo.model_vbar as comfy_aimdo_model_vbar
+except ModuleNotFoundError:
+    comfy_aimdo_model_vbar = None
 
 def set_model_options_patch_replace(model_options, patch, name, block_name, number, transformer_index=None):
     to = model_options["transformer_options"].copy()
@@ -315,7 +318,8 @@ class ModelPatcher:
         #than pays for CFG. So return everything both torch and Aimdo could give us
         aimdo_mem = 0
         if comfy.memory_management.aimdo_enabled:
-            aimdo_mem = comfy_aimdo.model_vbar.vbars_analyze()
+            if comfy_aimdo_model_vbar is not None:
+                aimdo_mem = comfy_aimdo_model_vbar.vbars_analyze()
         return comfy.model_management.get_free_memory(device) + aimdo_mem
 
     def get_clone_model_override(self):
@@ -1485,6 +1489,8 @@ class ModelPatcherDynamic(ModelPatcher):
         return True
 
     def _vbar_get(self, create=False):
+        if comfy_aimdo_model_vbar is None:
+            return None
         if self.load_device == torch.device("cpu"):
             return None
         vbar = self.model.dynamic_vbars.get(self.load_device, None)
@@ -1492,7 +1498,7 @@ class ModelPatcherDynamic(ModelPatcher):
             # x10. We dont know what model defined type casts we have in the vbar, but virtual address
             # space is pretty free. This will cover someone casting an entire model from FP4 to FP32
             # with some left over.
-            vbar = comfy_aimdo.model_vbar.ModelVBAR(self.model_size() * 10, self.load_device.index)
+            vbar = comfy_aimdo_model_vbar.ModelVBAR(self.model_size() * 10, self.load_device.index)
             self.model.dynamic_vbars[self.load_device] = vbar
         return vbar
 

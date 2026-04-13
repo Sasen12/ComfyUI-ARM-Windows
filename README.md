@@ -9,7 +9,7 @@ What this fork changes:
 - ARM-aware startup scripts and Windows ARM detection
 - DirectML-first behavior when the matching `torch-directml` stack is available
 - Safer defaults for custom nodes on Snapdragon systems
-- An experimental Snapdragon QNN lane for supported x64 Python 3.11/3.12 on Windows ARM
+- An experimental Snapdragon QNN lane for native ARM64 Python 3.11 on Windows ARM
 - Clearer startup logging, setup guidance, and ARM-focused tests
 
 Who this is for:
@@ -24,6 +24,7 @@ License: GPL-3.0
 - Snapdragon X Plus laptop
 - Windows 11 ARM64
 - CPU-only mode on the supported launch path
+- Native ARM64 Python 3.11 QNN launch
 - Basic workflows
 - Not officially affiliated with ComfyUI or Comfy Org
 - Performance will be limited compared with NVIDIA systems
@@ -61,10 +62,12 @@ If you want to install or repair the experimental Snapdragon QNN lane, run:
 .\bootstrap-arm-qnn.cmd
 ```
 
+The QNN lane uses native ARM64 Python 3.11 on Windows ARM.
+
 ## Current status
 - CPU-only launch works on the supported path.
 - Basic workflows are the intended first use case on this fork.
-- Experimental QNN nodes can run ONNX/QNN-compatible workloads on supported x64 Python 3.11/3.12 installs.
+- The native ARM64 QNN lane boots and serves the UI on Snapdragon X Plus.
 - Performance will be limited compared with NVIDIA systems.
 - Not officially affiliated with ComfyUI or Comfy Org.
 
@@ -92,7 +95,7 @@ If you want to install or repair the experimental Snapdragon QNN lane, run:
 ### What changed in this fork
 - Added Windows-on-ARM detection and DirectML auto-selection.
 - Added Snapdragon-friendly launch scripts and safe defaults for custom nodes.
-- Added an experimental Snapdragon QNN node pack for supported x64 Python 3.11/3.12 on Windows ARM.
+- Added an experimental Snapdragon QNN node pack for native ARM64 Python 3.11 on Windows ARM.
 - Added a CPU fallback path and clearer startup logging.
 - Added tests and docs for the Windows ARM path.
 
@@ -401,7 +404,7 @@ For the ARM-focused fork, you can also use the helper scripts in this repository
 4. Run [`scripts/bootstrap-arm.ps1`](./scripts/bootstrap-arm.ps1) directly if you want to repair or refresh the ARM dependency install from PowerShell.
 5. Pass `-CpuOnly` to [`scripts/launch-arm.ps1`](./scripts/launch-arm.ps1) if you want to force CPU mode for troubleshooting after installing a supported x64 Python.
 6. Pass `-SafeMode` and optionally `-WhitelistCustomNodes` to [`scripts/launch-arm.ps1`](./scripts/launch-arm.ps1) if you want to launch from PowerShell and selectively re-enable known-good custom node folders.
-7. Use [`launch-arm-qnn.cmd`](./launch-arm-qnn.cmd) for the experimental Snapdragon NPU lane. This uses the supported x64 Python 3.11/3.12 stack, runs the core app in CPU mode, and exposes the QNN nodes under `snapdragon/qnn`.
+7. Use [`launch-arm-qnn.cmd`](./launch-arm-qnn.cmd) for the experimental Snapdragon NPU lane. This uses the native ARM64 Python 3.11 stack, runs the core app in CPU mode, and exposes the QNN nodes under `snapdragon/qnn`.
 8. Use [`launch-arm-qnn-full.cmd`](./launch-arm-qnn-full.cmd) if you want the QNN lane without safe mode.
 
 On Snapdragon systems, custom nodes with compiled extensions or CUDA-only assumptions are the most common source of instability. Safe mode is the best starting point for a public ARM fork, and then you can whitelist only the nodes that you have confirmed work on your machine.

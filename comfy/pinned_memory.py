@@ -1,7 +1,11 @@
 import comfy.model_management
 import comfy.memory_management
-import comfy_aimdo.host_buffer
-import comfy_aimdo.torch
+try:
+    import comfy_aimdo.host_buffer as comfy_aimdo_host_buffer
+    import comfy_aimdo.torch as comfy_aimdo_torch
+except ModuleNotFoundError:
+    comfy_aimdo_host_buffer = None
+    comfy_aimdo_torch = None
 
 from comfy.cli_args import args
 
@@ -18,13 +22,17 @@ def pin_memory(module):
         module.pin_failed = True
         return False
 
+    if comfy_aimdo_host_buffer is None or comfy_aimdo_torch is None:
+        module.pin_failed = True
+        return False
+
     try:
-        hostbuf = comfy_aimdo.host_buffer.HostBuffer(size)
+        hostbuf = comfy_aimdo_host_buffer.HostBuffer(size)
     except RuntimeError:
         module.pin_failed = True
         return False
 
-    module._pin = comfy_aimdo.torch.hostbuf_to_tensor(hostbuf)
+    module._pin = comfy_aimdo_torch.hostbuf_to_tensor(hostbuf)
     module._pin_hostbuf = hostbuf
     comfy.model_management.TOTAL_PINNED_MEMORY += size
     return True
