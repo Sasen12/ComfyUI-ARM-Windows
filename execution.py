@@ -15,7 +15,11 @@ import torch
 from comfy.cli_args import args
 import comfy.memory_management
 import comfy.model_management
-import comfy_aimdo.model_vbar
+
+try:
+    import comfy_aimdo.model_vbar as comfy_aimdo_model_vbar
+except Exception:  # pragma: no cover - depends on optional package state
+    comfy_aimdo_model_vbar = None
 
 from latent_preview import set_preview_method
 import nodes
@@ -526,9 +530,14 @@ async def execute(server, dynprompt, caches, current_item, extra_data, executed,
             finally:
                 if comfy.memory_management.aimdo_enabled:
                     if args.verbose == "DEBUG":
-                        comfy_aimdo.control.analyze()
+                        try:
+                            import comfy_aimdo.control as comfy_aimdo_control
+                            comfy_aimdo_control.analyze()
+                        except Exception:
+                            pass
                     comfy.model_management.reset_cast_buffers()
-                    comfy_aimdo.model_vbar.vbars_reset_watermark_limits()
+                    if comfy_aimdo_model_vbar is not None:
+                        comfy_aimdo_model_vbar.vbars_reset_watermark_limits()
 
             if has_pending_tasks:
                 pending_async_nodes[unique_id] = output_data

@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param(
-    [switch]$Quiet
+    [switch]$Quiet,
+    [ValidateSet("DirectML", "QNN")]
+    [string]$Runtime = "DirectML"
 )
 
 $ErrorActionPreference = "Stop"
@@ -8,15 +10,18 @@ $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 . "$PSScriptRoot\arm-common.ps1"
 
-$python = Resolve-ArmPythonInvoker
+$runtimeName = Get-ArmRuntimeName -Runtime $Runtime
+$python = Resolve-ArmPythonInvoker -Runtime $runtimeName
 if (-not $python) {
-    $report = Get-ArmPythonDiscoveryReport
+    $report = Get-ArmPythonDiscoveryReport -Runtime $runtimeName
     if ($report -and $report.Count -gt 0) {
         $reportText = ($report | ForEach-Object {
             if ($_.Error) {
                 " - $($_.Path): ERROR $($_.Error)"
             } elseif ($_.Supported) {
                 " - $($_.Path): $($_.Machine) Python $($_.Version) (supported)"
+            } elseif ($_.Reason) {
+                " - $($_.Path): $($_.Machine) Python $($_.Version) (not supported: $($_.Reason))"
             } else {
                 " - $($_.Path): $($_.Machine) Python $($_.Version) (not supported)"
             }
@@ -26,42 +31,50 @@ if (-not $python) {
     }
 
     throw @"
-No supported Python interpreter was found.
-This ARM fork needs x64 Python 3.11 or 3.12 for DirectML.
+No supported Python interpreter was found for the $runtimeName runtime.
+This runtime needs $(Get-ArmRuntimeRequirementsText -Runtime $runtimeName).
 What I discovered:
 $reportText
 
-If you already have x64 Python 3.11 or 3.12 installed, point COMFYUI_ARM_PYTHON at the exact python.exe path and try again.
+If you already have a matching Python install, point COMFYUI_ARM_PYTHON at the exact python.exe path and try again.
 "@
 }
 
 $pythonMachine = Get-ArmPythonMachine -Invoker $python
-if ($pythonMachine -notin @("AMD64", "X64", "X86_64")) {
+$expectedMachine = if ($runtimeName -eq "QNN") { @("ARM64") } else { @("AMD64", "X64", "X86_64") }
+if ($pythonMachine -notin $expectedMachine) {
     throw @"
 Found Python '$($python.Display)' but it reports '$pythonMachine'.
-This ARM build expects x64 Python because torch-directml currently ships as an x64-friendly setup.
-Install x64 Python 3.11 or 3.12 and try again.
+This runtime expects $(Get-ArmRuntimeRequirementsText -Runtime $runtimeName).
+Install a matching Python interpreter and try again.
 "@
 }
 
 $pythonVersion = Get-ArmPythonVersion -Invoker $python
-if ($pythonVersion -notmatch '^3\.(11|12)\.') {
+$expectedVersionRegex = if ($runtimeName -eq "QNN") { '^3\.11\.' } else { '^3\.(11|12)\.' }
+if ($pythonVersion -notmatch $expectedVersionRegex) {
     throw @"
 Found Python '$($python.Display)' with version '$pythonVersion'.
-This ARM build is currently validated on Python 3.11 and 3.12 only because torch-directml wheels are published for those versions.
-Install x64 Python 3.11 or 3.12 and try again.
+This runtime is currently validated on $(Get-ArmRuntimeRequirementsText -Runtime $runtimeName) only.
+Install a matching Python interpreter and try again.
 "@
 }
 
-$requirementsArm = Join-Path $root "requirements-windows-arm.txt"
+$requirementsRuntime = if ($runtimeName -eq "QNN") {
+    Join-Path $root "requirements-windows-arm-qnn.txt"
+} else {
+    Join-Path $root "requirements-windows-arm.txt"
+}
 
-if (-not (Test-Path $requirementsArm)) {
-    throw "Missing requirements-windows-arm.txt."
+if (-not (Test-Path $requirementsRuntime)) {
+    throw "Missing $(Split-Path -Leaf $requirementsRuntime)."
 }
 
 $requirementsCore = Join-Path $root "requirements.txt"
-$stampPath = Join-Path $root ".arm-bootstrap.stamp"
-$currentStamp = Get-ArmBootstrapStamp -Invoker $python -RequirementPaths @($requirementsCore, $requirementsArm)
+$stampPath = Join-Path $root ".arm-bootstrap-$($runtimeName.ToLowerInvariant()).stamp"
+$bootstrapRequirementPaths = @($requirementsCore, $requirementsRuntime)
+$packageNames = if ($runtimeName -eq "QNN") { @("onnxruntime-qnn", "onnx") } else { @("torch-directml") }
+$currentStamp = Get-ArmBootstrapStamp -Invoker $python -Runtime $runtimeName -PackageNames $packageNames -RequirementPaths $bootstrapRequirementPaths
 $existingStamp = if (Test-Path $stampPath) { (Get-Content $stampPath -Raw).Trim() } else { "" }
 
 if ($existingStamp -eq $currentStamp) {
@@ -72,12 +85,21 @@ if ($existingStamp -eq $currentStamp) {
 }
 
 if (-not $Quiet) {
-    Write-Host "Installing ARM dependencies with $($python.Display)..."
+    Write-Host "Installing $runtimeName dependencies with $($python.Display)..."
 }
 
-Invoke-ArmPython -Invoker $python -Arguments @("-m", "pip", "install", "-r", $requirementsArm)
+if ($runtimeName -eq "QNN") {
+    Invoke-ArmPython -Invoker $python -Arguments @("-m", "pip", "install", "-r", $requirementsRuntime)
+} else {
+    Invoke-ArmPython -Invoker $python -Arguments @("-m", "pip", "install", "-r", $requirementsCore, "-r", $requirementsRuntime)
+}
+
+if ($LASTEXITCODE -ne 0) {
+    throw "pip install failed with exit code $LASTEXITCODE."
+}
+
 Set-Content -Path $stampPath -Value $currentStamp -Encoding ASCII -NoNewline
 
 if (-not $Quiet) {
-    Write-Host "ARM dependency bootstrap complete."
+    Write-Host "$runtimeName dependency bootstrap complete."
 }

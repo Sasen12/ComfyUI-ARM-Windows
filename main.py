@@ -20,7 +20,12 @@ from comfy_execution.progress import get_progress_state
 from comfy_execution.utils import get_executing_context
 from comfy_api import feature_flags
 from app.database.db import init_db, dependencies_available
-from comfy.windows_arm import describe_windows_arm_state, is_windows_on_arm64_host, is_windows_x64_emulated_on_arm64
+from comfy.windows_arm import (
+    describe_windows_arm_state,
+    is_windows_on_arm64_host,
+    is_windows_x64_emulated_on_arm64,
+    preferred_windows_arm_runtime,
+)
 
 if __name__ == "__main__":
     #NOTE: These do not do anything on core ComfyUI, they are for custom nodes.
@@ -483,10 +488,16 @@ if __name__ == "__main__":
         if is_windows_x64_emulated_on_arm64():
             logging.info("x64 emulation is a good match for the current DirectML dependency layout.")
         else:
-            logging.warning(
-                "This ARM fork is most reliable with x64 Python 3.11 or 3.12 under Windows emulation. "
-                "Native ARM64 Python may miss DirectML wheels and other dependency coverage."
-            )
+            runtime_hint = preferred_windows_arm_runtime()
+            if runtime_hint == "qnn":
+                logging.info(
+                    "Native ARM64 Python detected. That is the intended setup for the experimental Snapdragon QNN lane."
+                )
+            else:
+                logging.warning(
+                    "This ARM fork is most reliable with x64 Python 3.11 or 3.12 under Windows emulation for the DirectML lane. "
+                    "Use launch-arm-qnn.cmd on native ARM64 Python if you want the Snapdragon NPU path."
+                )
     logging.info("ComfyUI version: {}".format(comfyui_version.__version__))
     for package in ("comfy-aimdo", "comfy-kitchen"):
         try:

@@ -137,6 +137,10 @@ def should_auto_enable_directml() -> bool:
     if not is_windows_on_arm64_host():
         return False
 
+    runtime_hint = preferred_windows_arm_runtime()
+    if runtime_hint == "qnn":
+        return False
+
     disabled = os.environ.get("COMFYUI_DISABLE_AUTO_DIRECTML", "").strip().lower()
     return disabled not in {"1", "true", "yes", "on"}
 
@@ -156,3 +160,27 @@ def describe_windows_arm_state() -> str:
         return "Windows ARM64 host with native ARM64 Python"
 
     return "Windows ARM64 host"
+
+
+def get_requested_arm_runtime() -> str | None:
+    runtime = os.environ.get("COMFYUI_ARM_RUNTIME", "").strip().lower()
+    if runtime in {"directml", "qnn"}:
+        return runtime
+    return None
+
+
+def preferred_windows_arm_runtime() -> str | None:
+    requested = get_requested_arm_runtime()
+    if requested is not None:
+        return requested
+
+    if not is_windows_on_arm64_host():
+        return None
+
+    if is_windows_x64_emulated_on_arm64():
+        return "directml"
+
+    if is_windows_arm64_process():
+        return "qnn"
+
+    return "directml"

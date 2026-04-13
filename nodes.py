@@ -2433,6 +2433,7 @@ async def init_builtin_extra_nodes():
         "nodes_tcfg.py",
         "nodes_context_windows.py",
         "nodes_qwen.py",
+        "nodes_qnn.py",
         "nodes_chroma_radiance.py",
         "nodes_model_patch.py",
         "nodes_easycache.py",

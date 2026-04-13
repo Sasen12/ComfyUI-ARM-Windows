@@ -82,6 +82,90 @@ function Get-ArmPythonCandidatePaths {
     $candidate_paths | Where-Object { $_ } | Select-Object -Unique
 }
 
+if (-not $script:ArmPythonDiscoveryReports) {
+    $script:ArmPythonDiscoveryReports = @{}
+}
+
+function Get-ArmRuntimeName {
+    param(
+        [string]$Runtime = "DirectML"
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Runtime)) {
+        $Runtime = "DirectML"
+    }
+
+    $normalized = $Runtime.Trim().ToLowerInvariant()
+    if ($normalized -eq "qnn") {
+        return "QNN"
+    }
+    return "DirectML"
+}
+
+function Get-ArmRuntimeRequirementsText {
+    param(
+        [string]$Runtime = "DirectML"
+    )
+
+    switch (Get-ArmRuntimeName -Runtime $Runtime) {
+        "QNN" { return "native ARM64 Python 3.11.x" }
+        default { return "x64 Python 3.11 or 3.12" }
+    }
+}
+
+function Test-ArmPythonRuntimeSupport {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Machine,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Version,
+
+        [string]$Runtime = "DirectML"
+    )
+
+    $runtimeName = Get-ArmRuntimeName -Runtime $Runtime
+    if ($runtimeName -eq "QNN") {
+        if ($Machine -notin @("ARM64")) {
+            return [pscustomobject]@{
+                Supported = $false
+                Reason    = "This runtime needs native ARM64 Python."
+            }
+        }
+
+        if ($Version -notmatch '^3\.11\.') {
+            return [pscustomobject]@{
+                Supported = $false
+                Reason    = "This runtime is currently validated on Python 3.11.x only."
+            }
+        }
+
+        return [pscustomobject]@{
+            Supported = $true
+            Reason    = $null
+        }
+    }
+
+    if ($Machine -notin @("AMD64", "X64", "X86_64")) {
+        return [pscustomobject]@{
+            Supported = $false
+            Reason    = "This runtime needs x64 Python."
+        }
+    }
+
+    if ($Version -notmatch '^3\.(11|12)\.') {
+        return [pscustomobject]@{
+            Supported = $false
+            Reason    = "This runtime is currently validated on Python 3.11 and 3.12 only."
+        }
+    }
+
+    return [pscustomobject]@{
+        Supported = $true
+        Reason    = $null
+    }
+}
+
 function Resolve-ArmPythonPath {
     param(
         [Parameter(Mandatory = $true)]
@@ -156,11 +240,25 @@ function Get-ArmExecutableMachine {
 }
 
 function Get-ArmPythonDiscoveryReport {
-    return $script:ArmPythonDiscoveryReport
+    param(
+        [string]$Runtime = "DirectML"
+    )
+
+    $runtimeName = Get-ArmRuntimeName -Runtime $Runtime
+    if ($script:ArmPythonDiscoveryReports.ContainsKey($runtimeName)) {
+        return $script:ArmPythonDiscoveryReports[$runtimeName]
+    }
+
+    return @()
 }
 
 function Resolve-ArmPythonInvoker {
+    param(
+        [string]$Runtime = "DirectML"
+    )
+
     $results = @()
+    $runtimeName = Get-ArmRuntimeName -Runtime $Runtime
 
     foreach ($candidate_path in Get-ArmPythonCandidatePaths) {
         $resolved_path = Resolve-ArmPythonPath -Path $candidate_path
@@ -177,17 +275,19 @@ function Resolve-ArmPythonInvoker {
         try {
             $machine = Get-ArmPythonMachine -Invoker $invoker
             $version = Get-ArmPythonVersion -Invoker $invoker
-            $supported = ($machine -in @("AMD64", "X64", "X86_64")) -and ($version -match '^3\.(11|12)\.')
+            $support = Test-ArmPythonRuntimeSupport -Machine $machine -Version $version -Runtime $runtimeName
+            $supported = $support.Supported
 
             $results += [pscustomobject]@{
                 Path = $resolved_path
                 Machine = $machine
                 Version = $version
                 Supported = $supported
+                Reason = $support.Reason
             }
 
             if ($supported) {
-                $script:ArmPythonDiscoveryReport = $results
+                $script:ArmPythonDiscoveryReports[$runtimeName] = $results
                 return $invoker
             }
         } catch {
@@ -195,11 +295,12 @@ function Resolve-ArmPythonInvoker {
                 Path = $resolved_path
                 Error = $_.Exception.Message
                 Supported = $false
+                Reason = $null
             }
         }
     }
 
-    $script:ArmPythonDiscoveryReport = $results
+    $script:ArmPythonDiscoveryReports[$runtimeName] = $results
     return $null
 }
 
@@ -278,14 +379,22 @@ function Get-ArmBootstrapStamp {
         $Invoker,
 
         [Parameter(Mandatory = $true)]
-        [string[]]$RequirementPaths
+        [string[]]$RequirementPaths,
+
+        [string]$Runtime = "DirectML",
+
+        [string[]]$PackageNames = @()
     )
 
     $parts = @(
+        (Get-ArmRuntimeName -Runtime $Runtime),
         (Get-ArmPythonMachine -Invoker $Invoker),
-        (Get-ArmPythonVersion -Invoker $Invoker),
-        (Get-ArmPythonModuleVersion -Invoker $Invoker -ModuleName "torch-directml")
+        (Get-ArmPythonVersion -Invoker $Invoker)
     )
+
+    foreach ($package_name in $PackageNames) {
+        $parts += (Get-ArmPythonModuleVersion -Invoker $Invoker -ModuleName $package_name)
+    }
 
     foreach ($path in $RequirementPaths) {
         if (Test-Path $path) {

@@ -34,6 +34,7 @@ import comfy.quant_ops
 from comfy.windows_arm import (
     describe_windows_arm_state,
     directml_uses_shared_memory,
+    is_windows_on_arm64_host,
     should_auto_enable_directml,
 )
 
@@ -213,6 +214,9 @@ except:
     ixuca_available = False
 
 if args.cpu:
+    cpu_state = CPUState.CPU
+
+if not directml_enabled and is_windows_on_arm64_host() and not args.cpu:
     cpu_state = CPUState.CPU
 
 def is_intel_xpu():

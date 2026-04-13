@@ -1,5 +1,7 @@
 [CmdletBinding()]
 param(
+    [ValidateSet("DirectML", "QNN")]
+    [string]$Runtime = "DirectML",
     [switch]$CpuOnly,
     [switch]$SafeMode,
     [string[]]$WhitelistCustomNodes = @()
@@ -9,10 +11,17 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
-& "$PSScriptRoot\bootstrap-arm.ps1" -Quiet
+& "$PSScriptRoot\bootstrap-arm.ps1" -Quiet -Runtime $Runtime
 . "$PSScriptRoot\arm-common.ps1"
 
-$python = Resolve-ArmPythonInvoker
+$runtimeName = Get-ArmRuntimeName -Runtime $Runtime
+$env:COMFYUI_ARM_RUNTIME = $runtimeName.ToLowerInvariant()
+
+if ($runtimeName -eq "QNN") {
+    $CpuOnly = $true
+}
+
+$python = Resolve-ArmPythonInvoker -Runtime $runtimeName
 if (-not $python) {
     throw "No Python interpreter was found after bootstrap."
 }
