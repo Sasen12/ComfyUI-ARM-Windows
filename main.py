@@ -501,8 +501,18 @@ if __name__ == "__main__":
                 )
             elif not qnn_status["qnn_provider_available"]:
                 logging.warning(
-                    "QNN is installed, but ONNX Runtime is not exposing QNNExecutionProvider on this machine. "
-                    "This means the current ComfyUI workflow will stay on CPU unless you use a supported QNN path."
+                    "QNN is installed, but no Qualcomm QNN execution-provider devices were discovered. "
+                    "The snapdragon/qnn nodes will stay on CPU until a QNN device appears."
+                )
+            elif not qnn_status["qnn_npu_device_available"]:
+                logging.warning(
+                    "QNN devices are available, but no Snapdragon NPU device was discovered. "
+                    "The QNN lane can still run on other QNN-capable devices, but the Snapdragon NPU path is not active yet."
+                )
+            else:
+                logging.info(
+                    "Snapdragon NPU device detected. The experimental snapdragon/qnn nodes can target it, "
+                    "but the main ComfyUI diffusion pipeline still runs on PyTorch unless you feed it a supported quantized ONNX model."
                 )
         elif is_windows_x64_emulated_on_arm64():
             logging.info("x64 emulation is a good match for the current DirectML dependency layout.")

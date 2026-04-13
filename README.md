@@ -404,10 +404,10 @@ For the ARM-focused fork, you can also use the helper scripts in this repository
 4. Run [`scripts/bootstrap-arm.ps1`](./scripts/bootstrap-arm.ps1) directly if you want to repair or refresh the ARM dependency install from PowerShell.
 5. Pass `-CpuOnly` to [`scripts/launch-arm.ps1`](./scripts/launch-arm.ps1) if you want to force CPU mode for troubleshooting after installing a supported x64 Python.
 6. Pass `-SafeMode` and optionally `-WhitelistCustomNodes` to [`scripts/launch-arm.ps1`](./scripts/launch-arm.ps1) if you want to launch from PowerShell and selectively re-enable known-good custom node folders.
-7. Use [`launch-arm-qnn.cmd`](./launch-arm-qnn.cmd) for the experimental Snapdragon NPU lane. This uses the native ARM64 Python 3.11 stack, runs the core app in CPU mode, and exposes the QNN nodes under `snapdragon/qnn` when ONNX Runtime can see `QNNExecutionProvider`.
+7. Use [`launch-arm-qnn.cmd`](./launch-arm-qnn.cmd) for the experimental Snapdragon NPU lane. This uses the native ARM64 Python 3.11 stack, runs the core app in CPU mode, and exposes the QNN nodes under `snapdragon/qnn` when ONNX Runtime can see a Snapdragon QNN NPU device.
 8. Use [`launch-arm-qnn-full.cmd`](./launch-arm-qnn-full.cmd) if you want the QNN lane without safe mode.
 
-The QNN lane needs both `onnxruntime` and `onnxruntime-qnn`. If startup logs say `QNNExecutionProvider` is missing, the NPU lane is not active yet and the run will stay on CPU.
+The QNN lane needs both `onnxruntime` and `onnxruntime-qnn`, and the Snapdragon HTP/NPU path is meant for quantized ONNX/QDQ models. If startup logs say there is no QNN NPU device, the NPU lane is not active yet and the run will stay on CPU.
 
 On Snapdragon systems, custom nodes with compiled extensions or CUDA-only assumptions are the most common source of instability. Safe mode is the best starting point for a public ARM fork, and then you can whitelist only the nodes that you have confirmed work on your machine.
 

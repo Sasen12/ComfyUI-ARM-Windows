@@ -44,6 +44,30 @@ else:
 
 QNN_PROVIDER_NAME = "QNNExecutionProvider"
 CPU_PROVIDER_NAME = "CPUExecutionProvider"
+_DLL_DIRECTORY_HANDLES: list[Any] = []
+
+
+def _add_dll_directory(path: str) -> None:
+    if os.name != "nt" or not path:
+        return
+
+    try:
+        handle = os.add_dll_directory(path)
+    except Exception as exc:  # pragma: no cover - depends on host DLL policy
+        logging.debug("Unable to add QNN DLL directory '%s': %s", path, exc)
+    else:
+        _DLL_DIRECTORY_HANDLES.append(handle)
+
+
+def _bootstrap_qnn_dll_search_path() -> None:
+    if ort_qnn is None:
+        return
+
+    qnn_dir = os.path.dirname(os.path.abspath(ort_qnn.__file__))
+    _add_dll_directory(qnn_dir)
+
+
+_bootstrap_qnn_dll_search_path()
 
 if ort is not None and ort_qnn is not None:
     try:
@@ -94,13 +118,78 @@ def get_available_providers() -> list[str]:
         return []
 
 
+def get_ep_devices() -> list[Any]:
+    if ort is None:
+        return []
+
+    try:
+        return list(ort.get_ep_devices())
+    except Exception:
+        return []
+
+
+def _get_qnn_ep_devices() -> list[Any]:
+    return [device for device in get_ep_devices() if getattr(device, "ep_name", None) == QNN_PROVIDER_NAME]
+
+
+def _get_qnn_ep_devices_by_type(device_type: str) -> list[Any]:
+    device_type = (device_type or "").strip().upper()
+    if not device_type:
+        return []
+
+    matching_devices: list[Any] = []
+    for device in _get_qnn_ep_devices():
+        hardware = getattr(device, "device", None)
+        hardware_type = getattr(hardware, "type", None)
+        hardware_type_name = getattr(hardware_type, "name", None)
+        if hardware_type_name and hardware_type_name.upper() == device_type:
+            matching_devices.append(device)
+    return matching_devices
+
+
 def is_qnn_provider_available() -> bool:
-    return QNN_PROVIDER_NAME in get_available_providers()
+    return bool(_get_qnn_ep_devices())
+
+
+def is_qnn_npu_available() -> bool:
+    return bool(_get_qnn_ep_devices_by_type("NPU"))
+
+
+def _format_qnn_device_types() -> list[str]:
+    types: list[str] = []
+    seen: set[str] = set()
+    for device in _get_qnn_ep_devices():
+        hardware = getattr(device, "device", None)
+        hardware_type = getattr(hardware, "type", None)
+        hardware_type_name = getattr(hardware_type, "name", None)
+        if hardware_type_name and hardware_type_name not in seen:
+            seen.add(hardware_type_name)
+            types.append(hardware_type_name)
+    return types
+
+
+def _resolve_backend_path(backend_path: str | None) -> str | None:
+    if not backend_path:
+        return None
+
+    backend_path = os.path.expanduser(backend_path)
+    if os.path.isabs(backend_path):
+        return backend_path
+
+    if ort_qnn is not None:
+        qnn_dir = os.path.dirname(os.path.abspath(ort_qnn.__file__))
+        candidate = os.path.join(qnn_dir, backend_path)
+        if os.path.exists(candidate):
+            return candidate
+
+    return backend_path
 
 
 def get_status(backend: str | None = None) -> dict[str, Any]:
     available_providers = get_available_providers()
-    qnn_available = QNN_PROVIDER_NAME in available_providers
+    qnn_devices = _get_qnn_ep_devices()
+    qnn_device_types = _format_qnn_device_types()
+    qnn_npu_available = is_qnn_npu_available()
     return {
         "host_arm64": is_windows_on_arm64_host(),
         "process_arm64": is_windows_arm64_process(),
@@ -112,7 +201,11 @@ def get_status(backend: str | None = None) -> dict[str, Any]:
         "onnxruntime_qnn_available": ort_qnn is not None,
         "onnxruntime_qnn_import_error": None if onnxruntime_qnn_import_error is None else str(onnxruntime_qnn_import_error),
         "available_providers": available_providers,
-        "qnn_provider_available": qnn_available,
+        "ep_devices": len(get_ep_devices()),
+        "qnn_device_count": len(qnn_devices),
+        "qnn_device_types": qnn_device_types,
+        "qnn_provider_available": bool(qnn_devices),
+        "qnn_npu_device_available": qnn_npu_available,
         "backend_requested": backend or "auto",
     }
 
@@ -122,9 +215,12 @@ def describe_status(backend: str | None = None) -> str:
     host = "ARM64" if status["host_arm64"] else "non-ARM"
     process = "ARM64" if status["process_arm64"] else status["python_machine"]
     providers = ",".join(status["available_providers"]) if status["available_providers"] else "none"
+    qnn_devices = ",".join(status["qnn_device_types"]) if status["qnn_device_types"] else "none"
+    npu_state = "yes" if status["qnn_npu_device_available"] else "no"
     return (
         f"host={host} process={process} runtime={status['runtime_hint']} "
         f"backend={status['backend_requested']} providers={providers} "
+        f"qnn_devices={qnn_devices} npu={npu_state} "
         f"onnxruntime={'available' if status['onnxruntime_available'] else 'missing'}"
     )
 
@@ -153,43 +249,59 @@ def _resolve_provider_configuration(
     requested_backend: str,
     backend_path: str | None = None,
     allow_cpu_fallback: bool = True,
-) -> tuple[list[str], list[dict[str, Any]], str, bool]:
-    available_providers = get_available_providers()
-    qnn_available = QNN_PROVIDER_NAME in available_providers
+) -> tuple[list[Any], list[dict[str, Any]], str, bool]:
+    qnn_devices = _get_qnn_ep_devices()
+    qnn_npu_devices = _get_qnn_ep_devices_by_type("NPU")
+    qnn_gpu_devices = _get_qnn_ep_devices_by_type("GPU")
+    qnn_cpu_devices = _get_qnn_ep_devices_by_type("CPU")
 
     if requested_backend == "cpu":
-        return [CPU_PROVIDER_NAME], [{}], "cpu", False
+        return [], [{}], "cpu", False
 
     if requested_backend == "auto":
-        if qnn_available:
+        if qnn_npu_devices:
             requested_backend = "htp"
+        elif qnn_gpu_devices:
+            requested_backend = "gpu"
+        elif qnn_cpu_devices:
+            requested_backend = "cpu"
         elif allow_cpu_fallback:
-            return [CPU_PROVIDER_NAME], [{}], "cpu", True
+            return [], [{}], "cpu", True
         else:
             raise RuntimeError(
-                "QNNExecutionProvider is not available. "
+                "No QNN EP devices were discovered. "
                 "Install onnxruntime-qnn on native ARM64 Python 3.11 and try again."
             )
 
-    if not qnn_available:
+    if requested_backend == "htp":
+        selected_devices = qnn_npu_devices
+    elif requested_backend == "gpu":
+        selected_devices = qnn_gpu_devices
+    elif requested_backend == "cpu":
+        selected_devices = qnn_cpu_devices
+    else:
+        raise ValueError(f"Unsupported QNN backend '{requested_backend}'.")
+
+    if not selected_devices:
         if allow_cpu_fallback:
             logging.warning(
-                "QNNExecutionProvider is not available; falling back to CPU provider. "
+                "QNN EP device '%s' is not available; falling back to CPU provider. "
                 "Status: %s",
+                requested_backend,
                 describe_status(requested_backend),
             )
-            return [CPU_PROVIDER_NAME], [{}], "cpu", True
+            return [], [{}], "cpu", True
         raise RuntimeError(
-            "QNNExecutionProvider is not available in this Python environment."
+            f"QNN EP device '{requested_backend}' is not available in this Python environment."
         )
 
-    provider_options: dict[str, Any] = {"backend_type": requested_backend}
+    provider_options: dict[str, Any]
     if backend_path:
-        provider_options = {"backend_path": backend_path}
+        provider_options = {"backend_path": _resolve_backend_path(backend_path) or backend_path}
+    else:
+        provider_options = {"backend_type": requested_backend}
 
-    providers = [QNN_PROVIDER_NAME, CPU_PROVIDER_NAME]
-    options = [provider_options, {}]
-    return providers, options, requested_backend, False
+    return list(selected_devices[:1]), [provider_options], requested_backend, False
 
 
 def build_session_handle(
@@ -209,7 +321,7 @@ def build_session_handle(
     if strict_backend:
         allow_cpu_fallback = False
 
-    providers, provider_options, resolved_backend, fallback_used = _resolve_provider_configuration(
+    selected_devices, provider_options, resolved_backend, fallback_used = _resolve_provider_configuration(
         normalized_backend,
         backend_path=backend_path,
         allow_cpu_fallback=allow_cpu_fallback,
@@ -218,15 +330,26 @@ def build_session_handle(
     session_options = ort_module.SessionOptions()
     session_options.graph_optimization_level = ort_module.GraphOptimizationLevel.ORT_ENABLE_ALL
 
-    if strict_backend and providers and providers[0] == QNN_PROVIDER_NAME:
+    if selected_devices:
+        session_options.add_provider_for_devices(selected_devices, provider_options[0])
+
+    if strict_backend and selected_devices:
         session_options.add_session_config_entry("session.disable_cpu_ep_fallback", "1")
 
     session = ort_module.InferenceSession(
         model_path,
         sess_options=session_options,
-        providers=providers,
-        provider_options=provider_options,
     )
+
+    session_providers = list(session.get_providers())
+    if selected_devices and QNN_PROVIDER_NAME not in session_providers:
+        if allow_cpu_fallback:
+            fallback_used = True
+        else:
+            raise RuntimeError(
+                "QNN session initialized without the QNN execution provider. "
+                "Install a supported QNN backend or use CPU fallback."
+            )
 
     input_names = [node.name for node in session.get_inputs()]
     output_names = [node.name for node in session.get_outputs()]
@@ -235,8 +358,8 @@ def build_session_handle(
         session=session,
         model_path=model_path,
         backend=resolved_backend,
-        providers=list(providers),
-        provider_options=list(provider_options),
+        providers=session_providers,
+        provider_options=[provider_options[0]] if selected_devices else [{}],
         input_names=input_names,
         output_names=output_names,
         fallback_used=fallback_used,
