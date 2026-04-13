@@ -326,8 +326,6 @@ def attention_split(q, k, v, heads, mask=None, attn_precision=None, skip_reshape
             (q, k, v),
         )
 
-    r1 = torch.zeros(q.shape[0], q.shape[1], v.shape[2], device=q.device, dtype=q.dtype)
-
     mem_free_total = model_management.get_free_memory(q.device)
 
     if attn_precision == torch.float32:
@@ -349,7 +347,8 @@ def attention_split(q, k, v, heads, mask=None, attn_precision=None, skip_reshape
         # print(f"Expected tensor size:{tensor_size/gb:0.1f}GB, cuda free:{mem_free_cuda/gb:0.1f}GB "
         #      f"torch free:{mem_free_torch/gb:0.1f} total:{mem_free_total/gb:0.1f} steps:{steps}")
 
-    if steps > 64:
+    max_steps = 256 if model_management.is_directml_enabled() else 64
+    if steps > max_steps:
         max_res = math.floor(math.sqrt(math.sqrt(mem_free_total / 2.5)) / 8) * 64
         raise RuntimeError(f'Not enough memory, use lower resolution (max approx. {max_res}x{max_res}). '
                             f'Need: {mem_required/64/gb:0.1f}GB free, Have:{mem_free_total/gb:0.1f}GB free')
@@ -362,10 +361,10 @@ def attention_split(q, k, v, heads, mask=None, attn_precision=None, skip_reshape
         mask = mask.reshape(bs, -1, mask.shape[-2], mask.shape[-1]).expand(b, heads, -1, -1).reshape(-1, mask.shape[-2], mask.shape[-1])
 
     # print("steps", steps, mem_required, mem_free_total, modifier, q.element_size(), tensor_size)
-    first_op_done = False
     cleared_cache = False
     while True:
         try:
+            r1 = torch.zeros(q.shape[0], q.shape[1], v.shape[2], device=q.device, dtype=q.dtype)
             slice_size = q.shape[1] // steps if (q.shape[1] % steps) == 0 else q.shape[1]
             for i in range(0, q.shape[1], slice_size):
                 end = i + slice_size
@@ -386,25 +385,23 @@ def attention_split(q, k, v, heads, mask=None, attn_precision=None, skip_reshape
 
                 s2 = s1.softmax(dim=-1).to(v.dtype)
                 del s1
-                first_op_done = True
 
                 r1[:, i:end] = einsum('b i j, b j d -> b i d', s2, v)
                 del s2
             break
         except Exception as e:
             model_management.raise_non_oom(e)
-            if first_op_done == False:
-                model_management.soft_empty_cache(True)
-                if cleared_cache == False:
-                    cleared_cache = True
-                    logging.warning("out of memory error, emptying cache and trying again")
-                    continue
-                steps *= 2
-                if steps > 64:
-                    raise e
-                logging.warning("out of memory error, increasing steps and trying again {}".format(steps))
-            else:
+            model_management.soft_empty_cache(True)
+            if steps >= max_steps:
                 raise e
+            if cleared_cache == False:
+                cleared_cache = True
+                logging.warning("out of memory error, emptying cache and trying again")
+                continue
+            steps = min(steps * 2, max_steps)
+            cleared_cache = False
+            logging.warning("out of memory error, increasing steps and trying again {}".format(steps))
+            continue
 
     del q, k, v
 
@@ -1215,4 +1212,3 @@ class SpatialVideoTransformer(SpatialTransformer):
             x = self.proj_out(x)
         out = x + x_in
         return out
-
