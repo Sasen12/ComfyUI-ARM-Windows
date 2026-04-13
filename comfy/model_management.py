@@ -348,7 +348,14 @@ except AttributeError:
 def is_oom(e):
     if isinstance(e, OOM_EXCEPTION):
         return True
-    if isinstance(e, ACCELERATOR_ERROR) and (getattr(e, 'error_code', None) == 2 or "out of memory" in str(e).lower()):
+    message = str(e).lower()
+    if "could not allocate tensor" in message and ("gpu video memory" in message or "not enough memory" in message or "out of memory" in message):
+        discard_cuda_async_error()
+        return True
+    if "not enough gpu video memory" in message:
+        discard_cuda_async_error()
+        return True
+    if isinstance(e, ACCELERATOR_ERROR) and (getattr(e, 'error_code', None) == 2 or "out of memory" in message):
         discard_cuda_async_error()
         return True
     return False

@@ -212,6 +212,10 @@ def attention_basic(q, k, v, heads, mask=None, attn_precision=None, skip_reshape
 @wrap_attn
 def attention_sub_quad(query, key, value, heads, mask=None, attn_precision=None, skip_reshape=False, skip_output_reshape=False, **kwargs):
     attn_precision = get_attn_precision(attn_precision, query.dtype)
+    query_in = query
+    key_in = key
+    value_in = value
+    mask_in = mask
 
     if skip_reshape:
         b, _, _, dim_head = query.shape
@@ -261,17 +265,32 @@ def attention_sub_quad(query, key, value, heads, mask=None, attn_precision=None,
             bs = mask.shape[0]
         mask = mask.reshape(bs, -1, mask.shape[-2], mask.shape[-1]).expand(b, heads, -1, -1).reshape(-1, mask.shape[-2], mask.shape[-1])
 
-    hidden_states = efficient_dot_product_attention(
-        query,
-        key,
-        value,
-        query_chunk_size=query_chunk_size,
-        kv_chunk_size=kv_chunk_size,
-        kv_chunk_size_min=kv_chunk_size_min,
-        use_checkpoint=False,
-        upcast_attention=upcast_attention,
-        mask=mask,
-    )
+    try:
+        hidden_states = efficient_dot_product_attention(
+            query,
+            key,
+            value,
+            query_chunk_size=query_chunk_size,
+            kv_chunk_size=kv_chunk_size,
+            kv_chunk_size_min=kv_chunk_size_min,
+            use_checkpoint=False,
+            upcast_attention=upcast_attention,
+            mask=mask,
+        )
+    except Exception as e:
+        model_management.raise_non_oom(e)
+        logging.warning("Sub-quadratic attention ran out of memory; falling back to split attention.")
+        return attention_split(
+            query_in,
+            key_in,
+            value_in,
+            heads,
+            mask=mask_in,
+            attn_precision=attn_precision,
+            skip_reshape=skip_reshape,
+            skip_output_reshape=skip_output_reshape,
+            **kwargs,
+        )
 
     hidden_states = hidden_states.to(dtype)
     if skip_output_reshape:
@@ -735,7 +754,10 @@ elif model_management.pytorch_attention_enabled():
     logging.info("Using pytorch attention")
     optimized_attention = attention_pytorch
 else:
-    if args.use_split_cross_attention:
+    if model_management.is_directml_enabled():
+        logging.info("Using split attention for DirectML")
+        optimized_attention = attention_split
+    elif args.use_split_cross_attention:
         logging.info("Using split optimization for attention")
         optimized_attention = attention_split
     else:
@@ -1193,5 +1215,4 @@ class SpatialVideoTransformer(SpatialTransformer):
             x = self.proj_out(x)
         out = x + x_in
         return out
-
 
