@@ -34,8 +34,22 @@ except Exception as exc:  # pragma: no cover - depends on host package state
 else:
     onnxruntime_import_error = None
 
+try:
+    import onnxruntime_qnn as ort_qnn
+except Exception as exc:  # pragma: no cover - depends on host package state
+    ort_qnn = None
+    onnxruntime_qnn_import_error = exc
+else:
+    onnxruntime_qnn_import_error = None
+
 QNN_PROVIDER_NAME = "QNNExecutionProvider"
 CPU_PROVIDER_NAME = "CPUExecutionProvider"
+
+if ort is not None and ort_qnn is not None:
+    try:
+        ort.register_execution_provider_library(QNN_PROVIDER_NAME, ort_qnn.get_library_path())
+    except Exception as exc:  # pragma: no cover - depends on host provider state
+        logging.debug("Unable to register QNN provider library: %s", exc)
 
 _SESSION_LOCK = Lock()
 _SESSIONS: dict[str, "QnnSessionHandle"] = {}
@@ -95,6 +109,8 @@ def get_status(backend: str | None = None) -> dict[str, Any]:
         "python_version": platform.python_version(),
         "onnxruntime_available": ort is not None,
         "onnxruntime_import_error": None if onnxruntime_import_error is None else str(onnxruntime_import_error),
+        "onnxruntime_qnn_available": ort_qnn is not None,
+        "onnxruntime_qnn_import_error": None if onnxruntime_qnn_import_error is None else str(onnxruntime_qnn_import_error),
         "available_providers": available_providers,
         "qnn_provider_available": qnn_available,
         "backend_requested": backend or "auto",

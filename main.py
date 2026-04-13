@@ -487,9 +487,23 @@ if __name__ == "__main__":
         logging.info("Detected {}.".format(describe_windows_arm_state()))
         runtime_hint = preferred_windows_arm_runtime()
         if runtime_hint == "qnn":
+            from comfy import qnn_runtime
+
             logging.info(
                 "Snapdragon QNN mode selected. This fork uses native ARM64 Python 3.11 for the QNN lane."
             )
+            qnn_status = qnn_runtime.get_status()
+            logging.info("QNN status: %s", qnn_runtime.describe_status())
+            if not qnn_status["onnxruntime_available"]:
+                logging.warning(
+                    "QNN is not active because the onnxruntime Python package is missing. "
+                    "Install the QNN requirements and try again."
+                )
+            elif not qnn_status["qnn_provider_available"]:
+                logging.warning(
+                    "QNN is installed, but ONNX Runtime is not exposing QNNExecutionProvider on this machine. "
+                    "This means the current ComfyUI workflow will stay on CPU unless you use a supported QNN path."
+                )
         elif is_windows_x64_emulated_on_arm64():
             logging.info("x64 emulation is a good match for the current DirectML dependency layout.")
         else:

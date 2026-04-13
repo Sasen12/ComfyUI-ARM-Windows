@@ -9,4 +9,5 @@ kornia==0.7.1
 -r requirements.txt
 numpy>=1.26.4,<2
 onnx>=1.16.0
+onnxruntime>=1.24.4
 onnxruntime-qnn>=1.18.0
