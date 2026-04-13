@@ -1,7 +1,7 @@
 <div align="center">
 
 # ComfyUI-ARM-Windows
-**Unofficial fork of ComfyUI focused on Windows on ARM and Snapdragon laptops.**
+**Unofficial ARM-optimized fork of ComfyUI for Windows on ARM and Snapdragon laptops.**
 
 
 [![Website][website-shield]][website-url]
@@ -34,18 +34,37 @@
 ![ComfyUI Screenshot](https://github.com/user-attachments/assets/7ccaf2c1-9b72-41ae-9a89-5688c94b7abe)
 </div>
 
-ComfyUI-ARM-Windows is an unofficial fork of [ComfyUI](https://github.com/comfyanonymous/ComfyUI) focused on Windows on ARM and Snapdragon laptops.
+This is an unofficial fork of [ComfyUI](https://github.com/comfyanonymous/ComfyUI) focused on Windows on ARM and Snapdragon laptops.
 
-It keeps the GPL-3.0 license and upstream attribution intact. The main changes are ARM-aware startup scripts, Windows ARM detection, DirectML-first behavior when available, and safer defaults for Snapdragon machines.
+Who this is for:
+- Snapdragon X Plus and Snapdragon X Elite laptops on Windows 11 ARM64
+- People who want a safer, clearer ARM-specific launch path
+- Users who need CPU-only or DirectML-first startup on ARM hardware
+
+What this fork changes:
+- ARM-aware startup scripts and Windows ARM detection
+- DirectML-first behavior when the matching `torch-directml` stack is available
+- Safer defaults for custom nodes on Snapdragon systems
+- Clearer startup logging, setup guidance, and ARM-focused tests
+
+It keeps the GPL-3.0 license and upstream attribution intact. This is still ComfyUI, just adapted for a different Windows hardware target.
+
+## Quick Start
+1. Double-click [`start-arm.cmd`](./start-arm.cmd) for the one-command safe launch. It installs or refreshes the ARM dependencies and starts ComfyUI.
+2. Double-click [`start-arm-full.cmd`](./start-arm-full.cmd) if you want the same launch path with custom nodes enabled.
+3. Double-click [`bootstrap-arm.cmd`](./bootstrap-arm.cmd) if you only want to repair or refresh the ARM dependency install.
 
 ## Current status
-- Tested on a Snapdragon X laptop.
-- CPU-only works; the ARM path prefers DirectML when `torch-directml` is available.
+- Tested on a Snapdragon X Plus laptop.
+- CPU-only launch works on the supported path.
+- Basic workflows are the intended first use case on this fork.
 - Not officially affiliated with ComfyUI or Comfy Org.
 - Performance will be limited compared with NVIDIA systems.
 
 ## ARM-specific files
 - `bootstrap-arm.cmd`
+- `start-arm.cmd`
+- `start-arm-full.cmd`
 - `launch-arm.cmd`
 - `launch-arm-full.cmd`
 - `scripts/arm-common.ps1`
