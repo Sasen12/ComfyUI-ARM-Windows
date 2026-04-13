@@ -1,7 +1,7 @@
 <div align="center">
 
-# ComfyUI
-**The most powerful and modular visual AI engine and application.**
+# ComfyUI-ARM-Windows
+**Unofficial fork of ComfyUI focused on Windows on ARM and Snapdragon laptops.**
 
 
 [![Website][website-shield]][website-url]
@@ -33,6 +33,33 @@
 
 ![ComfyUI Screenshot](https://github.com/user-attachments/assets/7ccaf2c1-9b72-41ae-9a89-5688c94b7abe)
 </div>
+
+ComfyUI-ARM-Windows is an unofficial fork of [ComfyUI](https://github.com/comfyanonymous/ComfyUI) focused on Windows on ARM and Snapdragon laptops.
+
+It keeps the GPL-3.0 license and upstream attribution intact. The main changes are ARM-aware startup scripts, Windows ARM detection, DirectML-first behavior when available, and safer defaults for Snapdragon machines.
+
+## Current status
+- Tested on a Snapdragon X laptop.
+- CPU-only works; the ARM path prefers DirectML when `torch-directml` is available.
+- Not officially affiliated with ComfyUI or Comfy Org.
+- Performance will be limited compared with NVIDIA systems.
+
+## ARM-specific files
+- `bootstrap-arm.cmd`
+- `launch-arm.cmd`
+- `launch-arm-full.cmd`
+- `scripts/arm-common.ps1`
+- `scripts/bootstrap-arm.ps1`
+- `scripts/launch-arm.ps1`
+- `comfy/windows_arm.py`
+- `requirements-windows-arm.txt`
+- `tests-unit/comfy_test/windows_arm_test.py`
+
+### What changed in this fork
+- Added Windows-on-ARM detection and DirectML auto-selection.
+- Added Snapdragon-friendly launch scripts and safe defaults for custom nodes.
+- Added a CPU fallback path and clearer startup logging.
+- Added tests and docs for the Windows ARM path.
 
 ComfyUI lets you design and execute advanced stable diffusion pipelines using a graph/nodes/flowchart based interface. Available on Windows, Linux, and macOS.
 
