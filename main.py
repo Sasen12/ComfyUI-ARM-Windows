@@ -511,8 +511,8 @@ if __name__ == "__main__":
                 )
             else:
                 logging.info(
-                    "Snapdragon NPU device detected. The experimental snapdragon/qnn nodes can target it, "
-                    "but the main ComfyUI diffusion pipeline still runs on PyTorch unless you feed it a supported quantized ONNX model."
+                    "Snapdragon NPU device detected. Standard text-to-image denoising will try the QNN-backed path first, "
+                    "and unsupported workflows will fall back to PyTorch."
                 )
         elif is_windows_x64_emulated_on_arm64():
             logging.info("x64 emulation is a good match for the current DirectML dependency layout.")
