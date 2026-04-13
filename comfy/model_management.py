@@ -364,6 +364,34 @@ def raise_non_oom(e):
     if not is_oom(e):
         raise e
 
+
+def should_retry_on_cpu_after_oom(e):
+    return is_directml_enabled() and not cpu_mode() and is_oom(e)
+
+
+def switch_to_cpu_mode(reason=None):
+    global cpu_state
+    global directml_enabled
+    global directml_device
+    global directml_device_name
+    global directml_shared_memory
+    global vram_state
+    global set_vram_to
+
+    if reason is not None:
+        logging.warning("Switching to CPU mode after DirectML OOM: {}".format(reason))
+
+    cpu_state = CPUState.CPU
+    directml_enabled = False
+    directml_device = None
+    directml_device_name = None
+    directml_shared_memory = False
+    vram_state = VRAMState.DISABLED
+    set_vram_to = VRAMState.DISABLED
+
+    if hasattr(args, "cpu"):
+        args.cpu = True
+
 XFORMERS_VERSION = ""
 XFORMERS_ENABLED_VAE = True
 if args.disable_xformers:

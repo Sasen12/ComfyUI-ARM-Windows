@@ -14,6 +14,40 @@ def test_is_oom_recognizes_directml_video_memory_error():
     assert model_management.is_oom(exc) is True
 
 
+def test_should_retry_on_cpu_after_oom_only_when_directml_is_active(monkeypatch):
+    exc = RuntimeError(
+        "Could not allocate tensor with 134217728 bytes. There is not enough GPU video memory available!"
+    )
+
+    monkeypatch.setattr(model_management, "directml_enabled", True)
+    monkeypatch.setattr(model_management, "cpu_state", model_management.CPUState.GPU)
+    assert model_management.should_retry_on_cpu_after_oom(exc) is True
+
+    monkeypatch.setattr(model_management, "directml_enabled", False)
+    assert model_management.should_retry_on_cpu_after_oom(exc) is False
+
+
+def test_switch_to_cpu_mode_disables_directml(monkeypatch):
+    monkeypatch.setattr(model_management, "cpu_state", model_management.CPUState.GPU)
+    monkeypatch.setattr(model_management, "directml_enabled", True)
+    monkeypatch.setattr(model_management, "directml_device", object())
+    monkeypatch.setattr(model_management, "directml_device_name", "DirectML")
+    monkeypatch.setattr(model_management, "directml_shared_memory", True)
+    monkeypatch.setattr(model_management, "vram_state", model_management.VRAMState.NORMAL_VRAM)
+    monkeypatch.setattr(model_management, "set_vram_to", model_management.VRAMState.NORMAL_VRAM)
+    monkeypatch.setattr(model_management.args, "cpu", False, raising=False)
+
+    model_management.switch_to_cpu_mode("boom")
+
+    assert model_management.cpu_mode() is True
+    assert model_management.is_directml_enabled() is False
+    assert model_management.directml_device is None
+    assert model_management.directml_device_name is None
+    assert model_management.directml_shared_memory is False
+    assert model_management.vram_state == model_management.VRAMState.DISABLED
+    assert model_management.args.cpu is True
+
+
 def test_attention_sub_quad_falls_back_to_split_on_directml_oom(monkeypatch):
     q = torch.randn(1, 4, 8, dtype=torch.float32)
     k = torch.randn(1, 4, 8, dtype=torch.float32)
