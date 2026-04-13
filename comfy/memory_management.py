@@ -15,6 +15,19 @@ class TensorFileSlice(NamedTuple):
     size: int
 
 
+def get_untyped_storage(tensor):
+    if tensor is None:
+        return None
+
+    if isinstance(tensor, QuantizedTensor):
+        return get_untyped_storage(tensor._qdata)
+
+    try:
+        return tensor.untyped_storage()
+    except (AttributeError, NotImplementedError, RuntimeError):
+        return None
+
+
 def read_tensor_file_slice_into(tensor, destination):
 
     if isinstance(tensor, QuantizedTensor):
@@ -31,7 +44,11 @@ def read_tensor_file_slice_into(tensor, destination):
         destination._params = dataclasses.replace(destination._params, orig_dtype=dst_orig_dtype)
         return True
 
-    info = getattr(tensor.untyped_storage(), "_comfy_tensor_file_slice", None)
+    storage = get_untyped_storage(tensor)
+    if storage is None:
+        return False
+
+    info = getattr(storage, "_comfy_tensor_file_slice", None)
     if info is None:
         return False
 

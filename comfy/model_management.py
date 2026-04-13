@@ -590,7 +590,9 @@ def module_mmap_residency(module, free=False):
     for k in sd:
         t = sd[k]
         module_mem += t.nbytes
-        storage = t._qdata.untyped_storage() if isinstance(t, comfy.quant_ops.QuantizedTensor) else t.untyped_storage()
+        storage = comfy.memory_management.get_untyped_storage(t)
+        if storage is None:
+            continue
         if not getattr(storage, "_comfy_tensor_mmap_touched", False):
             continue
         mmap_touched_mem += t.nbytes
@@ -1357,7 +1359,10 @@ def cast_to_gathered(tensors, r, non_blocking=False, stream=None):
                 continue
             if comfy.memory_management.read_tensor_file_slice_into(tensor, dest_view):
                 continue
-            storage = tensor._qdata.untyped_storage() if isinstance(tensor, comfy.quant_ops.QuantizedTensor) else tensor.untyped_storage()
+            storage = comfy.memory_management.get_untyped_storage(tensor)
+            if storage is None:
+                dest_view.copy_(tensor, non_blocking=non_blocking)
+                continue
             if hasattr(storage, "_comfy_tensor_mmap_touched"):
                 storage._comfy_tensor_mmap_touched = True
             dest_view.copy_(tensor, non_blocking=non_blocking)
