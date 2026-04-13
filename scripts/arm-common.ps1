@@ -108,7 +108,7 @@ function Get-ArmRuntimeRequirementsText {
     )
 
     switch (Get-ArmRuntimeName -Runtime $Runtime) {
-        "QNN" { return "native ARM64 Python 3.11.x" }
+        "QNN" { return "x64 Python 3.11 or 3.12" }
         default { return "x64 Python 3.11 or 3.12" }
     }
 }
@@ -126,17 +126,17 @@ function Test-ArmPythonRuntimeSupport {
 
     $runtimeName = Get-ArmRuntimeName -Runtime $Runtime
     if ($runtimeName -eq "QNN") {
-        if ($Machine -notin @("ARM64")) {
+        if ($Machine -notin @("AMD64", "X64", "X86_64")) {
             return [pscustomobject]@{
                 Supported = $false
-                Reason    = "This runtime needs native ARM64 Python."
+                Reason    = "This runtime needs x64 Python."
             }
         }
 
-        if ($Version -notmatch '^3\.11\.') {
+        if ($Version -notmatch '^3\.(11|12)\.') {
             return [pscustomobject]@{
                 Supported = $false
-                Reason    = "This runtime is currently validated on Python 3.11.x only."
+                Reason    = "This runtime is currently validated on x64 Python 3.11 and 3.12 only."
             }
         }
 

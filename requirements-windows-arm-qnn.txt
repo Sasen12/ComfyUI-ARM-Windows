@@ -1,6 +1,6 @@
 -r requirements.txt
 
-# Snapdragon / Qualcomm QNN runtime for native ARM64 Python 3.11.x
+# Snapdragon / Qualcomm QNN runtime for supported x64 Python 3.11 or 3.12 on Windows ARM
 # The QNN execution provider is the experimental NPU lane for this fork.
 numpy>=1.26.4,<2
 onnx>=1.16.0
